@@ -1,18 +1,58 @@
 # Casualties: Unknown - Ollama Agent v2
 
-Targets **Casualties: Unknown v7.0.1 (demo)** and works with or without the **Casualties Together** multiplayer mod (4.0.1).
-Not compiled by me - the sandbox has no Unity/BepInEx DLLs - so expect to fix a few compile errors on the first build. Paste them to me.
+# MOD NOT MADE BY ME
+it was vibe coded by claude, so there is no copyright
+> but i do like a little attention
 
-## Install
-1. BepInEx 5 is already in `D:\SteamLibrary\steamapps\common\Casualties Unknown Demo`.
-2. **Delete the old `CasualtiesOllamaMod.dll` from `BepInEx\plugins`** (v1 and v2 would both patch the game).
-3. In this folder: `dotnet build -c Release` (GamePath is already set in the .csproj). The DLL is copied to `BepInEx\plugins` automatically.
-4. Settings, lessons and logs stay in `BepInEx\config\CasualtiesOllama\` (v1 data is picked up; memory is now under `memory\default\`).
+Targets **Casualties: Unknown v7.0.1 (demo)** and works with or without the **Casualties Together** multiplayer mod (4.0.1).
+
+# Setup & Build Guide
+> assuming you have BepInEx installed
+### Prerequisites
+* **.NET SDK**: Make sure you have the [.NET SDK installed](https://dotnet.microsoft.com/download). 
+  * To check if it’s already installed, open your terminal/command prompt and run:
+    ```bash
+    dotnet --version
+    ```
+
+---
+
+### Step 1: Download and Extract
+1. Go to the **Releases** page of the GitHub repository.
+2. Download the release `.zip` file (or Source code `.zip`).
+3. Extract the downloaded `.zip` file to a folder on your computer.
+
+---
+
+### Step 2: Set Your Game Path
+1. Open the extracted folder.
+2. Open the project configuration file (usually a `.csproj` file) with any text editor (Notepad, VS Code, etc.).
+3. Look for the following line:
+   ```xml
+   <GamePath>D:\SteamLibrary\steamapps\common\Casualties Unknown Demo</GamePath>
+   ```
+4. Change the path inside the tags to the actual directory where your game is installed. 
+   * *Example:*
+     ```xml
+     <GamePath>C:\Program Files (x86)\Steam\steamapps\common\Casualties Unknown Demo</GamePath>
+     ```
+5. **Save** and close the file.
+
+---
+
+### Step 3: Build the Project
+1. Open your terminal (Command Prompt or PowerShell) inside the extracted folder.
+   * *Tip:* In Windows File Explorer, click the address bar, type `cmd`, and press **Enter**.
+2. Run the following command:
+   ```bash
+   dotnet build -c Release
+   ```
+3. Once the build finishes successfully, your compiled files will be ready (typically inside the `bin/Release` folder).
 
 ## Hotkeys
 F8 panel | F9 start/stop AI | F10 emergency stop | F7 pointer tool
 
-## What's new (your list)
+## What's new
 | # | Feature | How |
 |---|---|---|
 | 1 | Sees traps | Finds hazards by component type on the whole scene (the v1 scan skipped the Ground layer where traps live). Shows trap state (armed / sprung / exploded) and what each does. Harmless "backgroundified" traps are ignored. |
@@ -32,8 +72,3 @@ F8 panel | F9 start/stop AI | F10 emergency stop | F7 pointer tool
 | 15 | Rate limits | Limits tab: min seconds between calls, calls/minute, calls/hour, tokens/hour, stop-or-wait, live usage counters, optional pause while waiting. Optional API key for Ollama cloud. |
 | - | Movement | New actions: `walljump`, `climb` (ropes/ladders, listed as C#), `leap` (run-up jump), `follow`. Ledge guard stops walks off big drops. Sees wall contact. |
 
-## Things I could not verify (tell me what the log says)
-- Multiplayer chat polling uses the mod's private `CHAT_LOG`; the log line `Multiplayer mod detected (players: .., chat: ..)` tells whether it was found.
-- Harmony hooks print `Damage hooks installed: N`. A hook that does not exist in your version is skipped silently.
-- Wall-jumping depends on the game's alternate-wall rule; the result text says why it stopped.
-- If the multiplayer mod's own patches change `PlayerCamera.Update`, AI movement may fight with them: report it.
