@@ -1,34 +1,157 @@
-# Casualties: Unknown - Ollama Agent v2.1
+# Casualties: Unknown - Ollama AI Player Mod (v2.1)
 
-Targets **Casualties: Unknown v7.0.1 (demo)**; works with or without the **Casualties Together** multiplayer mod (4.0.1).
-Build: `dotnet build -c Release` in this folder (GamePath is set in the .csproj). Delete any older `CasualtiesOllamaMod*.dll` from `BepInEx\plugins` first.
-Hotkeys: F8 panel | F9 start/stop AI | F10 emergency stop | F7 pointer tool. The panel can now be resized by dragging the `//` corner.
+A BepInEx plugin for **Casualties: Unknown** that lets an LLM (via [Ollama](https://ollama.com), local or cloud) play the game on its own. It comes with an in-game control panel, memory, multiplayer chat support, and a rate limiter so cloud credits don't vanish.
 
-## v2.1 changes (from your bug report)
-| # | Item | What changed |
-|---|---|---|
-| 1 | World objects | New `WORLD OBJECTS` section (O#): crates, buttons, plants, trees... with health, USABLE flag + prompt text, range and line of sight. New `interact` action (sends the same "OnUse" the game sends when you click). Damage/harvest = aim + attack on an O#. |
-| 2 | Shrapnel by hand | `pull_shrapnel` now starts the game's own shrapnel minigame and plays it (pain/bleeding cost like bare hands). Tweezers via `apply` use the same driver. |
-| 2.1 | Things on the body | `WEARING` (W#) lists clothes; `ATTACHED TO YOUR LIMBS` lists splints/tourniquets. `remove` takes a splint/tourniquet off a limb or takes clothing off (into the inventory). |
-| 3 | Bags | `BAG CONTENTS` shows what is inside each bag (held, worn or on the ground). `store` (item -> bag) and `take` (content # -> inventory). |
-| 4 | Liquids | The liquid you are in is named in STATUS (groundwater, lumalgae, oil...), and `VISION` lists the liquids near you. |
-| 5 | Short-term memory | Journal + recent turns are saved in the memory profile (`state.json`) and survive restarts and new lives (toggle: "Save short-term memory"). The death analysis is added to the journal. |
-| 6 | Bandages | Applied until the bleeding stops AND the item is used up if little is left (no 1% scraps). |
-| 7 | Defibrillators | STATUS shows irregular rhythm / cardiac arrest. `apply` an AED or manual defibrillator to the chest limb (L1); both minigames are played for you (manual: sets the charge to match the fibrillation and shocks until normal, max 4). |
-| 8 | Getting on top of ledges | New `mount` action: full-height jump, kick off the wall, keep pushing toward the wall so it lands ON the ledge. Measures the wall height first and refuses if it is too high. |
-| 9 / 9.1 | Ropes | New `climb`: walks to the rope, jumps to grab it, climbs up/down, can climb to a target's height (player/pointer/object) and leap off toward it, or exit left/right at the top. Auto-grab: the rope is grabbed the instant it is in reach (also while falling past it). |
-| 10 | Clothing | See 2.1 (`remove target W#`). |
-| 11 / 11.1 | Tools & batteries | `combine slot -> slot2`: tool on a device removes the battery, battery on a device inserts it, items into bags, stackable items together (the game's own drag-and-drop rules). |
-| QoL 1 | Carry / piggyback | `piggyback P#` (climb on a player), `carry P#` (put a player on your back), `dismount`, `drop_carried`; the observation says who is on whose back. Needs the multiplayer mod; the game's own rules (distance, standing, stack limit) apply and the result text says why a request is refused. |
-| QoL 2 | Path finding | `walk_to` / `follow` plan routes with A* over the real terrain: walking, steps, jumps over gaps and onto ledges (arcs simulated with your jump speed and gravity), drops, and crawl spaces. Falls back to the simple walker if no route exists. |
-| QoL 3 | Auto-crouch | Toggle in Control tab: crouches by itself when a 1-block-high tunnel is ahead (and the planner treats such tunnels as passable). |
-| QoL 4 | Notes about players | The AI can write `note_player` + `note`; saved per memory profile and shown next to that player's name. Editable in the Memory tab. |
-| QoL 5 | Resizable menu | Drag the `//` corner. The tab content scrolls inside the window. |
-| QoL 6 | Better vision | Senses tab: "compact text" (default) = 8 rays + what the floor does to the left/right (walls with height, pits, gaps, low tunnels) + which spots you can reach by walking/jumping/dropping + nearby liquids. ASCII picture is still available ("ASCII" or "both"). |
-| QoL 7 | Line of sight | Players and world objects show `LOS clear / blocked by terrain` (creatures already did). |
+> ## ⚠️ Disclaimer
+> **This mod was made by Claude (Anthropic's AI).**
+>
+> **This file needs to be compiled for it to work.** The previous version had a lot of issues and bugs (mainly because it was written for the wrong game version). This version fixes a lot of these bugs and adds new features, but it could still be improved.
+>
+> Parts of v2.1 have **not been fully tested in-game** (see [Known limitations](#known-limitations)). Expect rough edges, and please report them.
 
-## Things to watch (I could not run the game)
-- `interact` sends `OnUse` to the object like the game does; if some object type needs another message, tell me which one.
-- The AED driver positions the pads and presses the shock button by writing the minigame's private fields; if the game changes them the result text will say "treatment failed".
-- Path planning is bounded (about 28 blocks sideways, 16 vertically). Far targets: it walks as far as the best partial route goes, then re-plans.
-- Carry/piggyback depend on the multiplayer rules (`AlwaysAllowCarry`, stack limit).
+> **Recommended model: `gemma4:31b-cloud`.** It works best for the price and speed in my experience. If you have a good GPU, you can run this model locally on your PC.
+
+---
+
+## Requirements
+
+| Requirement | Version |
+|---|---|
+| Casualties: Unknown (Demo or full) | **v7.0.1** |
+| BepInEx | **5.x (x64, Mono)** |
+| Ollama | Local install and/or Ollama cloud |
+| Multiplayer mod (optional) | [Casualties Together](https://github.com/creaturefeaturelarry/casualties-together) 4.0.1 |
+| .NET SDK (only to compile yourself) | Any version that can target `netstandard2.1` |
+
+Full install and build steps: **[INSTALLATION INSTRUCTIONS.md](INSTALLATION%20INSTRUCTIONS.md)**
+
+---
+
+## Quick start
+
+1. Install BepInEx 5 into the game folder and run the game once.
+2. Drop `CasualtiesOllamaMod.dll` into `BepInEx\plugins\` (or compile it yourself).
+3. Start Ollama and pull a model (e.g. `gemma4:31b-cloud`).
+4. Launch the game and press **F8** to open the panel.
+5. Pick your model in the **Model** tab, press **F9** to start the AI.
+
+### Hotkeys
+
+| Key | Action |
+|---|---|
+| **F8** | Open / close the control panel |
+| **F9** | Start / stop the AI |
+| **F10** | Emergency stop, hands control back to you immediately |
+| **F7** | Pointer mode (left-click places a marker, right-click clears it) |
+
+While the AI is playing, your own keyboard and mouse input is ignored. Press **F10** to take over.
+
+---
+
+## How it works
+
+The AI runs in a loop: **observe → ask Ollama → run the actions → repeat.**
+
+- It reads a compact text description of the game (not raw screenshots).
+- It refers to targets by short IDs (`I1` items, `E2` enemies, `P1` players, `H1` hazards, `W1` worn items, `L1` limbs) instead of coordinates, which small models handle much better.
+- Every action returns a real result (e.g. "barely moved, probably blocked") that goes into the next prompt, so the AI can learn what worked.
+- By default the game **pauses while the model is thinking**, so slow models are still playable turn by turn.
+
+---
+
+## Features
+
+### In-game control panel (F8)
+A resizable window (drag the corner) with tabs for:
+**Control · Chat · Mission & Prompt · Senses · Allowed Actions · Model · Memory · Multiplayer · Log**
+
+- Give instructions, or talk to the AI directly
+- Toggle each sense and each allowed action individually
+- Pick the model, endpoint and optional API key (for Ollama cloud)
+- Live preview of exactly what the AI sees
+- Editable default prompt with all game knowledge
+- Settings profiles: save, load, overwrite, delete (the API key is never stored in a profile)
+
+### What the AI can sense
+- Overall health, per-limb health, heart rate, blood pressure, internal bleeding, irregular heartbeat
+- The bottom status icons (moodles) and the game's on-screen alerts, read as text
+- Collision/touching-wall status, surroundings, and where it can walk or jump
+- Nearby items, creatures, hazards and **traps** (with armed / already-sprung state)
+- **World objects**: crates, buttons, plants, trees, with health, usability, range and line of sight
+- **Players vs enemies**: other players show as `P#` with their names, creatures as `E#`
+- **Line of sight** (clear / blocked by terrain) for players, enemies and objects
+- **What hit it**: falls, explosions, traps and creature attacks, plus a "nearest hazard" fallback
+- Worn clothing, splints and tourniquets, bag contents
+- The type of liquid it's submerged in or near (groundwater, dirty water, oil, etc.)
+- Climbable ropes and ladders
+- Compact vision summary (8 rays, floor left/right, pits, gaps, low tunnels, reachable spots). The old ASCII map is still available in the Senses tab.
+
+### What the AI can do
+
+| Category | Actions |
+|---|---|
+| Movement | move, walk_to, follow, jump, crouch, leap (run-up gap jump), walljump, mount (get onto a ledge), climb (ropes/ladders) |
+| Combat | aim, attack, throw |
+| Items | grab, drop, swap, wear, remove, store, take, combine, inspect |
+| Medical | apply item to limb (bandages and injections are played automatically), pull_shrapnel, defibrillators (AED and manual) |
+| World | interact (crates, buttons, plants), craft |
+| Social | say, remember (notes about players) |
+| Carrying (multiplayer) | piggyback, carry, dismount, drop_carried |
+
+- **Pathfinding**: `walk_to` and `follow` plan routes over ledges, gaps, drops and crawl spaces using your real jump speed and gravity.
+- **Ledge guard**: stops the AI walking off big drops.
+- **Auto-crouch** toggle for small tunnels (Control tab).
+- Bandages are applied until used up, so no useless 1% scraps are left.
+
+### Memory
+- **Short-term**: recent turns kept verbatim; older turns are folded into a journal by the model itself.
+- **Long-term**: short lessons, written by the AI or by a post-mortem when it dies, saved to disk and injected into every prompt.
+- **Item notes**: inspect results are cached so items aren't re-inspected.
+- **Player notes**: long-term notes about specific players, shown next to their name and editable in the Memory tab.
+- Short-term and long-term memory can be toggled separately.
+- **Memory profiles**: create, switch and delete, each with its own lessons, runs, journal and notes.
+
+### Multiplayer support
+Works with and without the multiplayer mod (it's read via reflection).
+- Read multiplayer chat (toggle)
+- Reply mode: only when addressed / to every message / never
+- Configurable name and aliases the AI answers to
+- Players are separated from enemies
+- Carry / piggyback support
+
+### Rate limiting (save your credits)
+- Minimum seconds between calls
+- Calls per minute and per hour
+- Tokens per hour
+- Live counters, with a choice to wait or stop when the budget runs out
+
+For real-time play, leave the defaults. If you're on limited cloud credits, raise the delay until it suits you.
+
+---
+
+## Known limitations
+
+- The sandbox this was written in had no Unity or BepInEx DLLs, so **nothing was compiled or run by Claude**. Everything was checked against the extracted game source only.
+- The following are **untested** and may need fixes: `interact` on some object types, the defibrillator driver, carry/piggyback, and `mount`.
+- Very tall walls can't be climbed by wall-jumping, because the game limits wall-jumps on a single wall.
+- Relocating joints and pulling shrapnel are shortcuts that apply the result plus its pain cost, not the full minigame (except shrapnel, which uses the game's minigame in v2.1).
+- Crafting, sleeping and trading beyond the listed actions are limited. The AI cannot restart a run after death. It stops and writes a post-mortem lesson.
+- If the multiplayer mod's own patches fight with the AI's movement, please report it.
+
+## Troubleshooting
+
+Check `BepInEx\LogOutput.log` for these lines on startup:
+- `Multiplayer mod detected (players: …, chat: …)`
+- `Damage hooks installed: N`
+
+If either looks wrong, include them in your bug report.
+
+## Reporting bugs
+
+Open an issue with: the game version, the multiplayer mod version, the model you used, what the AI was doing, and the relevant lines from `BepInEx\LogOutput.log`.
+
+## Credits
+
+- Written by **Claude (Anthropic)**, directed and tested by the project owner.
+- Multiplayer compatibility targets [Casualties Together](https://github.com/creaturefeaturelarry/casualties-together).
+- Built on [BepInEx](https://github.com/BepInEx/BepInEx) and [Harmony](https://github.com/pardeike/Harmony).
