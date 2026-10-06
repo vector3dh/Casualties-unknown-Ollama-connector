@@ -136,7 +136,8 @@ namespace CasualtiesOllama
         public static JObject ActionSchema()
         {
             string[] verbs = { "move", "walk_to", "follow", "jump", "leap", "walljump", "climb", "crouch", "stand", "wait", "aim", "attack",
-                               "use", "apply", "grab", "wear", "drop", "throw", "swap_hands", "swap_slots", "inspect", "craft", "relocate", "pull_shrapnel", "say" };
+                               "use", "apply", "grab", "wear", "drop", "throw", "swap_hands", "swap_slots", "inspect", "craft", "relocate", "pull_shrapnel", "say",
+                               "mount", "interact", "remove", "store", "take", "combine", "piggyback", "carry", "dismount", "drop_carried" };
             var doEnum = new JArray(); foreach (var v in verbs) doEnum.Add(v);
             var props = new JObject
             {
@@ -150,7 +151,9 @@ namespace CasualtiesOllama
                 ["dx"] = new JObject { ["type"] = "number" },
                 ["dy"] = new JObject { ["type"] = "number" },
                 ["times"] = new JObject { ["type"] = "integer" },
-                ["text"] = new JObject { ["type"] = "string" }
+                ["text"] = new JObject { ["type"] = "string" },
+                ["target2"] = new JObject { ["type"] = "string" },
+                ["exit"] = new JObject { ["type"] = "string", ["enum"] = new JArray("left", "right", "none") }
             };
             return new JObject
             {
@@ -161,7 +164,9 @@ namespace CasualtiesOllama
                     ["actions"] = new JObject { ["type"] = "array", ["items"] = new JObject { ["type"] = "object", ["properties"] = props, ["required"] = new JArray("do") } },
                     ["say"] = new JObject { ["type"] = "string" },
                     ["chat"] = new JObject { ["type"] = "string" },
-                    ["lesson"] = new JObject { ["type"] = "string" }
+                    ["lesson"] = new JObject { ["type"] = "string" },
+                    ["note_player"] = new JObject { ["type"] = "string" },
+                    ["note"] = new JObject { ["type"] = "string" }
                 },
                 ["required"] = new JArray("thought", "actions")
             };

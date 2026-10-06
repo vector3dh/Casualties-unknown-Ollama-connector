@@ -18,6 +18,8 @@ namespace CasualtiesOllama
         public List<GameObject> Hazards = new List<GameObject>();
         public List<Climbable> Climbs = new List<Climbable>();
         public List<Recipe> Recipes = new List<Recipe>();
+        public List<Component> Objects = new List<Component>();
+        public List<Item> Worn = new List<Item>();
         public Vector2 Origin;
     }
 
@@ -277,13 +279,13 @@ namespace CasualtiesOllama
             if (s.Vitals)
             {
                 sb.AppendLine("STATUS: " + (b.conscious ? "awake" : "UNCONSCIOUS") + ", " + (b.standing ? "standing" : "not standing")
-                    + (b.sleeping ? ", sleeping" : "") + (b.inWater ? ", in liquid" : "")
+                    + (b.sleeping ? ", sleeping" : "") + (b.inWater ? ", in " + SenserExtra.Liquid(b) : "")
                     + " | blood volume " + R(b.bloodVolume) + " | blood oxygen " + R(b.bloodOxygen) + (b.breathing ? "" : " (NOT BREATHING)")
                     + " | brain " + R(b.brainHealth) + " | consciousness " + R(b.consciousness) + " | shock " + R(b.shock)
                     + " | pain " + R(b.averagePain) + " | bleeding rate " + b.totalBleedSpeed.ToString("0.00")
                     + (b.internalBleeding > 1f ? " | INTERNAL BLEEDING " + R(b.internalBleeding) : "")
                     + (b.septicShock > 1f ? " | SEPTIC SHOCK " + R(b.septicShock) : "")
-                    + " | heart rate " + R(b.heartRate) + " | blood pressure " + b.bloodPressureReadout);
+                    + " | heart rate " + R(b.heartRate) + " | blood pressure " + b.bloodPressureReadout + SenserExtra.VitalsExtra(b));
             }
             if (s.Needs)
                 sb.AppendLine("NEEDS: hunger " + R(b.hunger) + " | thirst " + R(b.thirst) + " | stamina " + R(b.stamina) + " | energy " + R(b.energy)
@@ -323,7 +325,7 @@ namespace CasualtiesOllama
                     bool bleeding = l.bleedAmount > 0.01f;
                     snap.Limbs[l.name] = new LimbSnap { Skin = l.skinHealth, Muscle = l.muscleHealth, Broken = l.broken, Dislocated = l.dislocated, Infected = l.infected, Dismembered = l.dismembered, Bleeding = bleeding };
                     bool healthy = l.skinHealth >= 95f && l.muscleHealth >= 95f && !l.broken && !l.dislocated && !l.infected && !l.dismembered && !bleeding && l.pain < 5f && !l.hasShrapnel;
-                    string label = "L" + i + " " + l.name;
+                    string label = "L" + i + " " + l.name + (i == 1 ? " (chest)" : "");
                     if (healthy) { okLimbs.Add(label); continue; }
                     var flags = new List<string>();
                     if (l.dismembered) flags.Add("DISMEMBERED");
@@ -423,7 +425,7 @@ namespace CasualtiesOllama
                             if (ob.alive && ob.totalBleedSpeed > 0.5f) st.Add("bleeding");
                             if (ob.alive && ob.bloodVolume < 70f) st.Add("low blood");
                             try { Item hi = ob.GetItem(ob.handSlot); if (hi != null) st.Add("holding " + ItemLabel(hi)); } catch { }
-                            sb.AppendLine("  P" + (i + 1) + " \"" + plist[i].Name + "\" dx=" + Sg(op.x - p.x) + " dy=" + Sg(op.y - p.y) + " dist=" + Vector2.Distance(p, op).ToString("0.0") + " - " + string.Join(", ", st.ToArray()));
+                            sb.AppendLine("  P" + (i + 1) + " \"" + plist[i].Name + "\" dx=" + Sg(op.x - p.x) + " dy=" + Sg(op.y - p.y) + " dist=" + Vector2.Distance(p, op).ToString("0.0") + (SenserExtra.Los(p + Vector2.up * 0.5f, op + Vector2.up * 0.5f) ? " LOS clear" : " LOS blocked by terrain") + " - " + string.Join(", ", st.ToArray()) + SenserExtra.PlayerNoteText(plist[i].Name));
                         }
                     }
                     else if (MP.Present) sb.AppendLine("OTHER PLAYERS: none in the scene.");
@@ -506,7 +508,7 @@ namespace CasualtiesOllama
                         {
                             var names = new List<string>();
                             foreach (Transform t in cont.transform) { Item ci = t.GetComponent<Item>(); if (ci != null) names.Add(ItemLabel(ci)); }
-                            extra = " (contains: " + string.Join(", ", names.ToArray()) + ")";
+                            extra = " (holds " + names.Count + " item(s), see BAG CONTENTS)";
                         }
                         sb.AppendLine("  [" + i + "] " + slotName + (i == b.handSlot ? " (ACTIVE HAND)" : "") + ": " + ItemName(it) + FlagsIfKnown(it, cfg) + extra);
                     }
@@ -519,7 +521,7 @@ namespace CasualtiesOllama
                 try
                 {
                     var worn = b.GetAllWearables();
-                    if (worn != null && worn.Count > 0) sb.AppendLine("WEARING: " + string.Join(", ", worn.Select(w => ItemName(w)).ToArray()));
+                    SenserExtra.Worn(sb, b, idx);
                 }
                 catch { }
             }
@@ -530,6 +532,9 @@ namespace CasualtiesOllama
             }
 
             // ---- crafting ----
+            SenserExtra.Bags(sb, b, idx, s);
+            SenserExtra.WorldObjects(sb, b, cfg, idx);
+            SenserExtra.Carry(sb, b);
             idx.Recipes = new List<Recipe>();
             if (s.Craftables && cfg.Allow.Craft)
             {
@@ -581,6 +586,7 @@ namespace CasualtiesOllama
 
             // ---- map ----
             string map = "";
+            if (s.Map && cfg.MapMode != "ascii") SenserExtra.CompactVision(sb, b, cfg, idx, hazards.Select(e => e.Go).ToList(), creatures.Select(e => e.Go).ToList());
             if (s.Map)
             {
                 int W = Mathf.Clamp(cfg.MapHalfWidth, 3, 25), H = Mathf.Clamp(cfg.MapHalfHeight, 2, 15);
@@ -619,7 +625,7 @@ namespace CasualtiesOllama
                 map = ms.ToString();
             }
 
-            return new Observation { Compact = sb.ToString(), Map = map, Snap = snap };
+            return new Observation { Compact = sb.ToString(), Map = (cfg.MapMode == "compact") ? "" : map, Snap = snap };
         }
     }
 }

@@ -114,7 +114,7 @@ namespace CasualtiesOllama
             if (!Active) AddChat("system", "(the AI is stopped - it will read this when you start it)");
         }
 
-        public void ClearRunMemory() { Mem.StartNewRun(); pendingResults.Clear(); AddLog("Short-term memory and journal cleared."); }
+        public void ClearRunMemory() { Mem.StartNewRun(true); pendingResults.Clear(); AddLog("Short-term memory and journal cleared."); }
 
         public void AddLog(string s)
         {
@@ -352,6 +352,7 @@ namespace CasualtiesOllama
                     Mem.AddRun(new RunRecord { Ended = DateTime.Now.ToString("yyyy-MM-dd HH:mm"), Summary = cause, Turns = nTurns, SurvivedSeconds = survived });
                     foreach (var l in lessons) if (Mem.AddLesson(l)) AddLog("LESSON (from death): " + l);
                     AddChat("system", "Post-mortem: " + cause);
+                    if (Cfg.ShortMemory) { Mem.Journal = (Mem.Journal + "\n[Your previous life ended after " + (int)survived + "s: " + cause + "]").Trim(); Mem.SaveState(); }
                 });
             });
         }
@@ -486,7 +487,7 @@ namespace CasualtiesOllama
                 Mem.Turns.RemoveAll(t => summarized.Contains(t));
                 AddLog("Journal updated (" + newJournal.Length + " chars).");
             }
-            if (Cfg.ShortMemory) Mem.Turns.Add(new TurnRecord { N = TurnNo, UserText = compact, AssistantText = raw });
+            if (Cfg.ShortMemory) { Mem.Turns.Add(new TurnRecord { N = TurnNo, UserText = compact, AssistantText = raw }); Mem.SaveState(); }
             FileLog(new { time = DateTime.Now.ToString("o"), turn = TurnNo, seconds = LastThinkSeconds, observation = LastObservation, reply = raw });
 
             JObject jo;
@@ -515,6 +516,9 @@ namespace CasualtiesOllama
             }
             if (!string.IsNullOrWhiteSpace(chat)) SendChat(chat);
             if (Cfg.LongMemory && !string.IsNullOrWhiteSpace(lesson) && Mem.AddLesson(lesson)) AddLog("LESSON: " + lesson);
+            string notePlayer = (string)jo["note_player"] ?? "";
+            string noteText = (string)jo["note"] ?? "";
+            if (Cfg.LongMemory && notePlayer.Length > 0 && noteText.Length > 0 && Mem.AddPlayerNote(notePlayer, noteText)) AddLog("PLAYER NOTE [" + notePlayer + "]: " + noteText);
 
             Exec.ResetAim();
             var arr = jo["actions"] as JArray;

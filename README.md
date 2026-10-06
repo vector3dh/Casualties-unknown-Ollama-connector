@@ -1,74 +1,34 @@
-# Casualties: Unknown - Ollama Agent v2
+# Casualties: Unknown - Ollama Agent v2.1
 
-# MOD NOT MADE BY ME
-it was vibe coded by claude, so there is no copyright
-> but i do like a little attention
+Targets **Casualties: Unknown v7.0.1 (demo)**; works with or without the **Casualties Together** multiplayer mod (4.0.1).
+Build: `dotnet build -c Release` in this folder (GamePath is set in the .csproj). Delete any older `CasualtiesOllamaMod*.dll` from `BepInEx\plugins` first.
+Hotkeys: F8 panel | F9 start/stop AI | F10 emergency stop | F7 pointer tool. The panel can now be resized by dragging the `//` corner.
 
-Targets **Casualties: Unknown v7.0.1 (demo)** and works with or without the **Casualties Together** multiplayer mod (4.0.1).
-
-# Setup & Build Guide
-> assuming you have BepInEx installed
-### Prerequisites
-* **.NET SDK**: Make sure you have the [.NET SDK installed](https://dotnet.microsoft.com/download). 
-  * To check if it’s already installed, open your terminal/command prompt and run:
-    ```bash
-    dotnet --version
-    ```
-
----
-
-### Step 1: Download and Extract
-1. Go to the **Releases** page of the GitHub repository.
-2. Download the release `.zip` file (or Source code `.zip`).
-3. Extract the downloaded `.zip` file to a folder on your computer.
-
----
-
-### Step 2: Set Your Game Path
-1. Open the extracted folder.
-2. Open the project configuration file (usually a `.csproj` file) with any text editor (Notepad, VS Code, etc.).
-3. Look for the following line:
-   ```xml
-   <GamePath>D:\SteamLibrary\steamapps\common\Casualties Unknown Demo</GamePath>
-   ```
-4. Change the path inside the tags to the actual directory where your game is installed. 
-   * *Example:*
-     ```xml
-     <GamePath>C:\Program Files (x86)\Steam\steamapps\common\Casualties Unknown Demo</GamePath>
-     ```
-5. **Save** and close the file.
-
----
-
-### Step 3: Build the Project
-1. Open your terminal (Command Prompt or PowerShell) inside the extracted folder.
-   * *Tip:* In Windows File Explorer, click the address bar, type `cmd`, and press **Enter**.
-2. Run the following command:
-   ```bash
-   dotnet build -c Release
-   ```
-3. Once the build finishes successfully, your compiled files will be ready (typically inside the `bin/Release` folder).
-
-## Hotkeys
-F8 panel | F9 start/stop AI | F10 emergency stop | F7 pointer tool
-
-## What's new
-| # | Feature | How |
+## v2.1 changes (from your bug report)
+| # | Item | What changed |
 |---|---|---|
-| 1 | Sees traps | Finds hazards by component type on the whole scene (the v1 scan skipped the Ground layer where traps live). Shows trap state (armed / sprung / exploded) and what each does. Harmless "backgroundified" traps are ignored. |
-| 2 | Players vs enemies | `OTHER PLAYERS` (P#, real humans, with names) are separate from `CREATURES` (E#). Uses the multiplayer mod's player dictionary via reflection. |
-| 3 | What hit me | Hooks on falls/impacts, explosions, bear trap, fence, cactus, coil, mine, spike trap, crate, spider attacks. Falls back to "nearest hazard/creature within 4 blocks". Shown as `WHAT HIT YOU`. |
-| 4 | Self-bandaging / limb items | Calls the game's own `ApplyWoundItem` (multiplayer-synced) and then plays the bandage / syringe minigame automatically. Dislocation = `relocate`, shrapnel = `pull_shrapnel` (direct shortcuts with their pain cost, not the minigames). |
-| 5 | Reads MP chat | Toggle in Multiplayer tab. Echoes of its own messages are ignored. |
-| 6 | Pointer | F7 or Control tab: left-click places a marker, right-click clears. Mode "look here" or "follow" (tracks your mouse; walking costs no LLM calls). Target id `PTR`. |
-| 7 | Crafting | Only recipes craftable right now are listed (R#); crafted through the game's own `TryCraft`. |
-| 8 | Inspect | Items show only a name; `inspect` returns the game's tooltip. Result is saved as a short note per item id. Toggle "always show item flags" if you prefer. |
-| 9 | Memory toggles | Short-term (turns + journal) and long-term (lessons, post-mortems, runs) can be switched off separately. The prompt tells the AI which it has. |
-| 10 | Bottom status bar | The status icons (moodles) are read as text, plus heart rate, blood pressure, internal bleeding, septic shock, and the game's on-screen alerts. |
-| 11 | Answers players | Reacts immediately when its name (or an alias) is said, or to every message, or never. Replies through the `chat` field (150 chars, cooldown). |
-| 12 | Settings profiles | Profiles tab: save / load / overwrite / delete. API key is never stored in a profile. |
-| 13 | Memory profiles | Memory tab: create / switch / delete (separate lessons, runs, item notes). |
-| 14 | New default prompt | Covers all of the above; editable in Mission tab. |
-| 15 | Rate limits | Limits tab: min seconds between calls, calls/minute, calls/hour, tokens/hour, stop-or-wait, live usage counters, optional pause while waiting. Optional API key for Ollama cloud. |
-| - | Movement | New actions: `walljump`, `climb` (ropes/ladders, listed as C#), `leap` (run-up jump), `follow`. Ledge guard stops walks off big drops. Sees wall contact. |
+| 1 | World objects | New `WORLD OBJECTS` section (O#): crates, buttons, plants, trees... with health, USABLE flag + prompt text, range and line of sight. New `interact` action (sends the same "OnUse" the game sends when you click). Damage/harvest = aim + attack on an O#. |
+| 2 | Shrapnel by hand | `pull_shrapnel` now starts the game's own shrapnel minigame and plays it (pain/bleeding cost like bare hands). Tweezers via `apply` use the same driver. |
+| 2.1 | Things on the body | `WEARING` (W#) lists clothes; `ATTACHED TO YOUR LIMBS` lists splints/tourniquets. `remove` takes a splint/tourniquet off a limb or takes clothing off (into the inventory). |
+| 3 | Bags | `BAG CONTENTS` shows what is inside each bag (held, worn or on the ground). `store` (item -> bag) and `take` (content # -> inventory). |
+| 4 | Liquids | The liquid you are in is named in STATUS (groundwater, lumalgae, oil...), and `VISION` lists the liquids near you. |
+| 5 | Short-term memory | Journal + recent turns are saved in the memory profile (`state.json`) and survive restarts and new lives (toggle: "Save short-term memory"). The death analysis is added to the journal. |
+| 6 | Bandages | Applied until the bleeding stops AND the item is used up if little is left (no 1% scraps). |
+| 7 | Defibrillators | STATUS shows irregular rhythm / cardiac arrest. `apply` an AED or manual defibrillator to the chest limb (L1); both minigames are played for you (manual: sets the charge to match the fibrillation and shocks until normal, max 4). |
+| 8 | Getting on top of ledges | New `mount` action: full-height jump, kick off the wall, keep pushing toward the wall so it lands ON the ledge. Measures the wall height first and refuses if it is too high. |
+| 9 / 9.1 | Ropes | New `climb`: walks to the rope, jumps to grab it, climbs up/down, can climb to a target's height (player/pointer/object) and leap off toward it, or exit left/right at the top. Auto-grab: the rope is grabbed the instant it is in reach (also while falling past it). |
+| 10 | Clothing | See 2.1 (`remove target W#`). |
+| 11 / 11.1 | Tools & batteries | `combine slot -> slot2`: tool on a device removes the battery, battery on a device inserts it, items into bags, stackable items together (the game's own drag-and-drop rules). |
+| QoL 1 | Carry / piggyback | `piggyback P#` (climb on a player), `carry P#` (put a player on your back), `dismount`, `drop_carried`; the observation says who is on whose back. Needs the multiplayer mod; the game's own rules (distance, standing, stack limit) apply and the result text says why a request is refused. |
+| QoL 2 | Path finding | `walk_to` / `follow` plan routes with A* over the real terrain: walking, steps, jumps over gaps and onto ledges (arcs simulated with your jump speed and gravity), drops, and crawl spaces. Falls back to the simple walker if no route exists. |
+| QoL 3 | Auto-crouch | Toggle in Control tab: crouches by itself when a 1-block-high tunnel is ahead (and the planner treats such tunnels as passable). |
+| QoL 4 | Notes about players | The AI can write `note_player` + `note`; saved per memory profile and shown next to that player's name. Editable in the Memory tab. |
+| QoL 5 | Resizable menu | Drag the `//` corner. The tab content scrolls inside the window. |
+| QoL 6 | Better vision | Senses tab: "compact text" (default) = 8 rays + what the floor does to the left/right (walls with height, pits, gaps, low tunnels) + which spots you can reach by walking/jumping/dropping + nearby liquids. ASCII picture is still available ("ASCII" or "both"). |
+| QoL 7 | Line of sight | Players and world objects show `LOS clear / blocked by terrain` (creatures already did). |
 
+## Things to watch (I could not run the game)
+- `interact` sends `OnUse` to the object like the game does; if some object type needs another message, tell me which one.
+- The AED driver positions the pads and presses the shock button by writing the minigame's private fields; if the game changes them the result text will say "treatment failed".
+- Path planning is bounded (about 28 blocks sideways, 16 vertically). Far targets: it walks as far as the best partial route goes, then re-plans.
+- Carry/piggyback depend on the multiplayer rules (`AlwaysAllowCarry`, stack limit).

@@ -17,6 +17,7 @@ namespace CasualtiesOllama
         public bool Collision = true;
         public bool Map = true;
         public bool Items = true;
+        public bool Objects = true;       // world objects: crates, buttons, plants, trees (with health)
         public bool Players = true;       // other human players (multiplayer)
         public bool Creatures = true;
         public bool Hazards = true;       // traps, mines, saws...
@@ -48,6 +49,9 @@ namespace CasualtiesOllama
         public bool Craft = true;
         public bool Inspect = true;
         public bool Speak = true;
+        public bool Interact = true;       // use world objects (buttons, crates, plants)
+        public bool Storage = true;        // put items into / take items out of bags, combine items, batteries
+        public bool Carry = true;          // piggyback / carry players (multiplayer)
         public bool Chat = true;
     }
 
@@ -79,6 +83,10 @@ namespace CasualtiesOllama
         public bool InterruptOnChat = true;
         public bool AutoFollowPointer = true;  // follow the pointer without calling the LLM (saves credits)
         public bool LogToFile = true;
+        public bool AutoCrouch = true;         // crouch automatically when a 1-block-high tunnel is ahead
+        public bool AutoGrabRope = true;       // grab a rope the moment it is within reach (also while falling past it)
+        public bool KeepShortMemory = true;    // short-term memory + journal are saved to disk and survive restarts / new lives
+        public string MapMode = "compact";     // compact | ascii | both
 
         // ---- rate limits (0 = unlimited) ----
         public int MaxCallsPerMinute = 0;

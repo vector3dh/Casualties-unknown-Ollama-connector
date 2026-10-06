@@ -33,7 +33,7 @@ MESSAGE FROM HUMAN: the person running you. Reply in 'say'.
 
 === HOW YOU ANSWER ===
 Reply with ONLY one JSON object:
-{""thought"": ""<1-2 short sentences>"", ""actions"": [ up to {MAXACTIONS} actions ], ""say"": ""<optional: message to the human operator>"", ""chat"": ""<optional: message to the other players in the multiplayer chat, max 150 chars>"", ""lesson"": ""<optional: ONE short general rule you just learned>""}
+{""thought"": ""<1-2 short sentences>"", ""actions"": [ up to {MAXACTIONS} actions ], ""say"": ""<optional: message to the human operator>"", ""chat"": ""<optional: message to the other players in the multiplayer chat, max 150 chars>"", ""lesson"": ""<optional: ONE short general rule you just learned>"", ""note_player"": ""<optional: a player's name>"", ""note"": ""<optional: one fact worth remembering long-term about that player>""}
 
 Actions (a 'do' field plus what it needs):
 MOVING
@@ -59,6 +59,18 @@ ITEMS
 - {""do"":""wear"",""slot"":3}   put on clothing/armor/bags.
 - {""do"":""swap_hands""} {""do"":""swap_slots"",""slot"":2,""slot2"":0} {""do"":""drop"",""slot"":2} {""do"":""throw""}
 - {""do"":""say"",""text"":""...""}   speak out loud in the world.
+WORLD, BODY AND ITEMS (newer actions)
+- {""do"":""mount"",""dir"":""right""}   get on top of the wall/ledge beside you (jump, kick off the wall, drift back onto the top). Use mount for ledges; walljump is only for narrow shafts with two walls.
+- {""do"":""climb"",""target"":""C1"",""dir"":""up"",""exit"":""right""}   go to a rope/ladder, jump to grab it and climb (grabbing is automatic once it is in reach, also while falling past it). With target P1/PTR/O1 it climbs to that height and leaps off toward it. exit left/right = jump off at the top.
+- walk_to / follow now plan their own route over ledges, gaps, drops and crawl spaces (they jump and crouch by themselves). You do not need to micro-manage jumps.
+- {""do"":""interact"",""target"":""O2""}   use a world object (button, crate, plant...). To damage or harvest an object, aim at it and attack.
+- {""do"":""remove"",""target"":""W2""} take off worn clothing/armor; {""do"":""remove"",""limb"":""L3""} take a splint or tourniquet off a limb.
+- {""do"":""store"",""slot"":2,""slot2"":4}   put the item in slot 2 into the bag in slot 4 (worn/ground bags: target2 W1 / I3). {""do"":""take"",""slot"":4,""slot2"":0}   take content #0 out of the bag in slot 4 (or target W1 / I3).
+- {""do"":""combine"",""slot"":2,""slot2"":3}   use item 2 on item 3: a tool on a device removes its battery, a battery on a device inserts it, items into a bag, stackable items together.
+- {""do"":""pull_shrapnel"",""limb"":""L4""} pulls shrapnel out with bare hands (painful). Tweezers used with apply are gentler.
+- Heart: when STATUS shows an irregular rhythm (fibrillation), apply an AED or manual defibrillator to the CHEST limb (L1); the minigame is played for you. Bandages are used until the item is completely used up.
+- Multiplayer: {""do"":""piggyback"",""target"":""P1""} climb on a player's back, {""do"":""dismount""}, {""do"":""carry"",""target"":""P1""} put a (usually downed) player on YOUR back, {""do"":""drop_carried""}.
+More senses: VISION lists rays, what the floor does to the left/right (walls, pits, gaps, low tunnels) and which spots you can reach; WORLD OBJECTS (O#) show health and whether they are USABLE; BAGS show what is inside; WEARING (W#) and ATTACHED TO YOUR LIMBS show what you can take off; the liquid you stand in is named in STATUS; LOS says whether terrain blocks the view to a player/object.
 
 Only use actions the human ALLOWS (listed below). Actions run in order; keep the list SHORT (1-{MAXACTIONS}) so you can look again often. In danger, take tiny steps.
 
@@ -134,6 +146,9 @@ Only use actions the human ALLOWS (listed below). Actions run in order; keep the
             line(a.Inspect, "inspect");
             line(a.Speak, "say (out loud in the world)");
             line(a.Chat, "chat (multiplayer chat messages)");
+            line(a.Interact, "interact (use world objects)");
+            line(a.Storage, "store, take, combine (bags, batteries, tools on items)");
+            line(a.Carry, "piggyback, carry, dismount, drop_carried");
             sb.AppendLine("A FORBIDDEN action simply fails; do not waste turns on it.");
             return sb.ToString();
         }

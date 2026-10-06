@@ -10,7 +10,7 @@ namespace CasualtiesOllama
 {
     public class AiAction
     {
-        public string Do = "", Dir = "", Target = "", Limb = "", Text = "";
+        public string Do = "", Dir = "", Target = "", Limb = "", Text = "", Target2 = "", Exit = "";
         public float Sec, Dx, Dy;
         public bool HasDxDy;
         public int Slot = -1, Slot2 = -1, Times = 1;
@@ -58,6 +58,8 @@ namespace CasualtiesOllama
             a.Target = S(o["target"]).ToUpperInvariant();
             a.Limb = S(o["limb"]);
             a.Text = S(o["text"]);
+            a.Target2 = S(o["target2"]).ToUpperInvariant();
+            a.Exit = S(o["exit"]).ToLowerInvariant();
             a.Sec = F(o["sec"], 0f);
             a.Slot = I(o["slot"], -1);
             a.Slot2 = I(o["slot2"], -1);
@@ -71,7 +73,7 @@ namespace CasualtiesOllama
     /// Executes AiActions over time by driving the game's own Body methods/fields.
     /// A Harmony postfix on PlayerCamera.Update calls Apply() every frame to push the controls into the Body.
     /// </summary>
-    public class Executor
+    public partial class Executor
     {
         readonly Plugin P;
         public Vector2 WantMove;
@@ -90,7 +92,7 @@ namespace CasualtiesOllama
 
         public Executor(Plugin p) { P = p; }
 
-        public void Update(float dt) { if (jumpLock > 0f) jumpLock -= dt; }
+        public void Update(float dt) { if (jumpLock > 0f) jumpLock -= dt; if (ropeIntent > 0f) ropeIntent -= dt; }
 
         public void ResetControls() { WantMove = Vector2.zero; WantCrouch = false; jumpPending = false; jumpHold = 0f; ResetAim(); }
         public void StopMotion() { WantMove = Vector2.zero; WantCrouch = false; }
@@ -102,8 +104,9 @@ namespace CasualtiesOllama
         {
             var A = P.Cfg.Allow;
             Vector2 mv = A.Move ? WantMove : Vector2.zero;
+            mv = RopeAssist(b, mv);
             b.moveDir = mv;
-            b.crouching = WantCrouch && A.Crouch;
+            b.crouching = (WantCrouch || AutoCrouchNeeded(b)) && A.Crouch;
             b.targetLookPos = AimWorld(b);
             if (jumpPending)
             {
@@ -147,7 +150,7 @@ namespace CasualtiesOllama
                 case "inspect": ok = A.Inspect; break;
                 case "say": ok = A.Speak; break;
                 case "wait": ok = true; break;
-                default: return "unknown action '" + verb + "'";
+                default: return DeniedExtra(verb, A);
             }
             return ok ? null : "NOT ALLOWED by the human: " + verb;
         }
@@ -181,6 +184,7 @@ namespace CasualtiesOllama
                 case 'H': if (n <= idx.Hazards.Count && idx.Hazards[n - 1] != null) { tf = idx.Hazards[n - 1].transform; pos = tf.position; return true; } break;
                 case 'P': if (n <= idx.Players.Count && idx.Players[n - 1] != null) { tf = idx.Players[n - 1].transform; pos = tf.position; return true; } break;
                 case 'C': if (n <= idx.Climbs.Count && idx.Climbs[n - 1] != null) { pos = idx.Climbs[n - 1].GetGrabInfo(me.transform.position).position; return true; } break;
+                case 'O': if (n <= idx.Objects.Count && idx.Objects[n - 1] != null) { tf = idx.Objects[n - 1].transform; pos = tf.position; return true; } break;
             }
             return false;
         }
@@ -271,6 +275,7 @@ namespace CasualtiesOllama
                 if (deny != null) { res = deny; return true; }
             }
             a.T += dt;
+            if (UseExtra(a, b, idx)) return StepExtra(a, b, idx, dt, out res);
 
             switch (a.Do)
             {
@@ -547,20 +552,19 @@ namespace CasualtiesOllama
                             try { if (BandageStep != null) BandageStep.Invoke(bm, null); else if (bm.OnUse != null) bm.OnUse(1f / 18f); } catch { }
                             a.Count++;
                         }
-                        finish = a.T > maxSec || item == null || item.condition <= 0.02f || (a.Sec <= 0f && a.T > 2f && lb.bleedAmount < 0.05f);
+                        finish = BandageDone(a, item, lb, maxSec);
                     }
                     else if (mg is SyringeMinigame)
                     {
                         var sm = (SyringeMinigame)mg;
                         try { if (sm.OnUse != null) sm.OnUse(dt); } catch { }
                         a.Count++;
-                        finish = a.T > maxSec || item == null || item.condition <= 0.01f || (a.Sec <= 0f && a.T > 6f);
+                        finish = (a.Sec > 0f && a.T > maxSec) || a.T > 14f || item == null || item.condition <= 0.001f;
                     }
                     else
                     {
-                        MinigameBase.main.EndMinigame();
-                        res = "this treatment starts a hand-operated minigame (" + mg.GetType().Name + ") that I cannot play; it was closed";
-                        return true;
+                        if (DriveOther(mg, a, b, dt, out res)) return true;
+                        return false;
                     }
                     if (finish)
                     {

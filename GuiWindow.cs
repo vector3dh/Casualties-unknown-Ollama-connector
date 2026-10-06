@@ -36,6 +36,9 @@ namespace CasualtiesOllama
         readonly ConcurrentQueue<Action> mq = new ConcurrentQueue<Action>();
 
         bool dirty;
+        Vector2 outerScroll;
+        bool resizing;
+        Vector2 resizeStartMouse, resizeStartSize;
         float lastSave;
 
         public GuiWindow(Plugin p) { P = p; }
@@ -52,6 +55,20 @@ namespace CasualtiesOllama
             Vector2 mp = Input.mousePosition;
             mp.y = Screen.height - mp.y;
             MouseOver = rect.Contains(mp);
+        }
+
+        void DrawResizeGrip()
+        {
+            Rect grip = new Rect(rect.width - 26f, rect.height - 26f, 24f, 24f);
+            GUI.Box(grip, "//");
+            Event e = Event.current;
+            if (e.type == EventType.MouseDown && grip.Contains(e.mousePosition))
+            {
+                resizing = true;
+                resizeStartMouse = Input.mousePosition;
+                resizeStartSize = new Vector2(rect.width, rect.height);
+                e.Use();
+            }
         }
 
         void EnsureStyles()
@@ -77,6 +94,17 @@ namespace CasualtiesOllama
             rect = GUI.Window(94712, rect, DrawWindow, "Casualties Ollama Agent v2   [F8 hide | F9 start/stop | F10 emergency stop | F7 pointer]");
             GUI.backgroundColor = oldBg;
 
+            if (resizing)
+            {
+                if (Input.GetMouseButton(0))
+                {
+                    Vector2 m = Input.mousePosition;
+                    rect.width = Mathf.Clamp(resizeStartSize.x + (m.x - resizeStartMouse.x), 520f, Screen.width - 10f);
+                    rect.height = Mathf.Clamp(resizeStartSize.y - (m.y - resizeStartMouse.y), 380f, Screen.height - 10f);
+                }
+                else resizing = false;
+            }
+
             string focused = GUI.GetNameOfFocusedControl();
             Typing = !string.IsNullOrEmpty(focused) && focused.StartsWith("f_");
 
@@ -98,6 +126,7 @@ namespace CasualtiesOllama
 
             GUI.changed = false;
             GUILayout.Space(4);
+            outerScroll = GUILayout.BeginScrollView(outerScroll, GUILayout.Height(Mathf.Max(200f, rect.height - 100f)));
             switch (tab)
             {
                 case 0: TabControl(); break;
@@ -112,7 +141,9 @@ namespace CasualtiesOllama
                 case 9: TabMultiplayer(); break;
                 case 10: TabLog(); break;
             }
+            GUILayout.EndScrollView();
             if (GUI.changed) dirty = true;
+            DrawResizeGrip();
             GUI.DragWindow(new Rect(0, 0, 10000, 22));
         }
 
@@ -179,6 +210,8 @@ namespace CasualtiesOllama
             Cfg.ForceNormalSpeed = Tg(Cfg.ForceNormalSpeed, "Cancel the game's fast-forward while the AI plays");
             Cfg.AutoJumpHelper = Tg(Cfg.AutoJumpHelper, "Movement helper: auto-jump over small obstacles");
             Cfg.LedgeGuard = Tg(Cfg.LedgeGuard, "Ledge guard: refuse to walk off big drops (use 'leap' to cross gaps)");
+            Cfg.AutoCrouch = Tg(Cfg.AutoCrouch, "Auto-crouch: crouch by itself in 1-block-high tunnels while walking");
+            Cfg.AutoGrabRope = Tg(Cfg.AutoGrabRope, "Auto-grab ropes the moment they are in reach (also while falling past them)");
 
             GUILayout.Space(4);
             GUILayout.Label("What the AI is thinking", header);
@@ -239,8 +272,18 @@ namespace CasualtiesOllama
             s.StatusIcons = Tg(s.StatusIcons, "Status icons at the bottom of the screen, as text");
             s.Limbs = Tg(s.Limbs, "Limb injuries");
             s.Collision = Tg(s.Collision, "Touch: ground, walls, ceiling, ledges, climbing");
-            s.Map = Tg(s.Map, "Vision: ASCII map");
+            s.Map = Tg(s.Map, "Vision: terrain / spatial awareness");
+            {
+                string[] mapModes = { "compact", "ascii", "both" };
+                int mmi = Array.IndexOf(mapModes, Cfg.MapMode); if (mmi < 0) mmi = 0;
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("     Vision style:", GUILayout.Width(130));
+                mmi = GUILayout.Toolbar(mmi, new[] { "compact text (few lines)", "ASCII picture", "both" });
+                Cfg.MapMode = mapModes[mmi];
+                GUILayout.EndHorizontal();
+            }
             s.Items = Tg(s.Items, "Vision: nearby items");
+            s.Objects = Tg(s.Objects, "Vision: world objects (crates, buttons, plants, trees) with health");
             s.Players = Tg(s.Players, "Vision: other players");
             s.Creatures = Tg(s.Creatures, "Vision: creatures");
             s.Hazards = Tg(s.Hazards, "Vision: traps and hazards");
@@ -294,6 +337,9 @@ namespace CasualtiesOllama
             a.Inspect = Tg(a.Inspect, "Inspect items");
             a.Speak = Tg(a.Speak, "Speak out loud in the game");
             a.Chat = Tg(a.Chat, "Write in the multiplayer chat");
+            a.Interact = Tg(a.Interact, "Interact with world objects (buttons, crates, plants)");
+            a.Storage = Tg(a.Storage, "Bags and combining: store / take items, batteries, tools on items");
+            a.Carry = Tg(a.Carry, "Piggyback / carry players (multiplayer)");
             GUILayout.Space(6);
             Cfg.MaxActionsPerTurn = IntSlider("Max actions per AI turn", Cfg.MaxActionsPerTurn, 1, 8);
             GUILayout.Label("Fewer actions per turn = it reacts more often but calls the LLM more often.", small);
@@ -355,7 +401,8 @@ namespace CasualtiesOllama
             var m = P.Mem;
             GUILayout.Label("What may the AI remember?", header);
             Cfg.ShortMemory = Tg(Cfg.ShortMemory, "Short-term memory (recent turns + journal of this life)");
-            Cfg.LongMemory = Tg(Cfg.LongMemory, "Long-term memory (lessons, post-mortems, previous lives)");
+            Cfg.LongMemory = Tg(Cfg.LongMemory, "Long-term memory (lessons, post-mortems, previous lives, notes about players)");
+            Cfg.KeepShortMemory = Tg(Cfg.KeepShortMemory, "Save short-term memory + journal in the memory profile (survives restarts and new lives)");
 
             GUILayout.Label("Memory profile: " + m.Profile, header);
             string switchTo = null, createName = null;
@@ -416,6 +463,18 @@ namespace CasualtiesOllama
             }
             GUILayout.EndScrollView();
             if (rmNote != null) m.RemoveNote(rmNote);
+
+            GUILayout.Label("Notes about players (long-term; the AI writes them with note_player + note)", header);
+            string rmPlayer = null; int rmIndex = -1;
+            foreach (var kv in m.PlayerNotes)
+                for (int pi = 0; pi < kv.Value.Count; pi++)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label(kv.Key + ": " + kv.Value[pi], small);
+                    if (GUILayout.Button("x", GUILayout.Width(26))) { rmPlayer = kv.Key; rmIndex = pi; }
+                    GUILayout.EndHorizontal();
+                }
+            if (rmPlayer != null) m.RemovePlayerNote(rmPlayer, rmIndex);
 
             GUILayout.Label("Journal of the current life (editable)", header);
             m.Journal = Area("journal", m.Journal, 70);
