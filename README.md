@@ -28,6 +28,10 @@ Hotkeys: F8 panel | F9 start/stop AI | F10 emergency stop | F7 pointer tool. The
 | QoL 6 | Better vision | Senses tab: "compact text" (default) = 8 rays + what the floor does to the left/right (walls with height, pits, gaps, low tunnels) + which spots you can reach by walking/jumping/dropping + nearby liquids. ASCII picture is still available ("ASCII" or "both"). |
 | QoL 7 | Line of sight | Players and world objects show `LOS clear / blocked by terrain` (creatures already did). |
 
+## OpenAI-compatible API (not just Ollama)
+
+The Model tab now has an **“API the server speaks”** switch: **Ollama** (default) or **OpenAI-compatible**. Flip it to **OpenAI-compatible** and paste the base URL of any OpenAI-style endpoint into the same URL box — e.g. `http://localhost:1234` (llama.cpp / LM Studio) or `https://openrouter.ai/api/v1`. You don't need to add `/v1`; it is appended automatically (and not doubled if you type it). Put your API key in the API key box if the service needs one (sent as a `Bearer` token). Everything else — model picker, rate limits, memory, scales, prompts — works exactly the same. The key difference under the hood: it POSTs to `/v1/chat/completions` (reading `choices[0].message.content` + `usage`) instead of Ollama's `/api/chat`, and sends `max_tokens` instead of `num_predict`. The reply is still parsed with the same JSON extractor, so structured action output keeps working.
+
 ## Things to watch (I could not run the game)
 - `interact` sends `OnUse` to the object like the game does; if some object type needs another message, tell me which one.
 - The AED driver positions the pads and presses the shock button by writing the minigame's private fields; if the game changes them the result text will say "treatment failed".

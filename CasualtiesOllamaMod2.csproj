@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <GamePath>C:\Users\proto\Desktop\backup\Casualties Unknown Demo V1</GamePath>
+    <GamePath>/home/speedymule/.local/share/Steam/steamapps/common/Casualties Unknown Demo</GamePath>
     <ManagedPath>$(GamePath)\CasualtiesUnknown_Data\Managed</ManagedPath>
     <BepInExCore>$(GamePath)\BepInEx\core</BepInExCore>
   </PropertyGroup>
@@ -20,20 +20,20 @@
 
   <ItemGroup>
     <!-- BepInEx + Harmony -->
-    <Reference Include="BepInEx"><HintPath>$(BepInExCore)\BepInEx.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="0Harmony"><HintPath>$(BepInExCore)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx"><HintPath>$(BepInExCore)/BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExCore)/0Harmony.dll</HintPath><Private>false</Private></Reference>
 
     <!-- Game & Unity DLLs -->
-    <Reference Include="$(ManagedPath)\Assembly-CSharp.dll"><Private>false</Private></Reference>
-    <Reference Include="$(ManagedPath)\UnityEngine*.dll"><Private>false</Private></Reference>
-    <Reference Include="$(ManagedPath)\Unity.*.dll"><Private>false</Private></Reference>
-    <Reference Include="$(ManagedPath)\Newtonsoft.Json.dll"><Private>false</Private></Reference>
+    <Reference Include="$(ManagedPath)/Assembly-CSharp.dll"><Private>false</Private></Reference>
+    <Reference Include="$(ManagedPath)/UnityEngine*.dll"><Private>false</Private></Reference>
+    <Reference Include="$(ManagedPath)/Unity.*.dll"><Private>false</Private></Reference>
+    <Reference Include="$(ManagedPath)/Newtonsoft.Json.dll"><Private>false</Private></Reference>
   </ItemGroup>
 
   <!-- The multiplayer mod is NOT referenced: it is accessed through reflection, so this mod works with or without it. -->
 
-  <Target Name="CopyToPlugins" AfterTargets="Build" Condition="Exists('$(GamePath)\BepInEx\plugins')">
-    <Copy SourceFiles="$(OutDir)CasualtiesOllamaMod2.dll" DestinationFolder="$(GamePath)\BepInEx\plugins" />
+  <Target Name="CopyToPlugins" AfterTargets="Build" Condition="Exists('$(GamePath)/BepInEx/plugins')">
+    <Copy SourceFiles="$(OutDir)CasualtiesOllamaMod2.dll" DestinationFolder="$(GamePath)/BepInEx/plugins" />
     <Message Importance="high" Text="Copied CasualtiesOllamaMod2.dll to $(GamePath)\BepInEx\plugins  (delete the OLD CasualtiesOllamaMod.dll from that folder!)" />
   </Target>
 

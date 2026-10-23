@@ -74,7 +74,7 @@ Two ways to install: use a **pre-built DLL** (easiest), or **compile it yourself
 
 1. Start Ollama, then start the game.
 2. Press **F8** to open the panel.
-3. In the **Model** tab, set the endpoint (default Ollama address), choose your model, and add an API key only if your cloud setup needs one.
+3. In the **Model** tab, use the **“API the server speaks”** switch to pick **Ollama** or **OpenAI-compatible**. For OpenAI-compatible, paste the base URL of your endpoint (e.g. `http://localhost:1234` or `https://openrouter.ai/api/v1`) into the URL box, choose your model, and add an API key only if your cloud setup needs one (sent as a Bearer token).
 4. Start a run, then press **F9** to start the AI. **F10** is the emergency stop.
 5. Check `BepInEx\LogOutput.log` for:
    - `Multiplayer mod detected (players: …, chat: …)` (only if the multiplayer mod is installed)

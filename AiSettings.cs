@@ -57,9 +57,10 @@ namespace CasualtiesOllama
 
     public class AiSettings
     {
-        // ---- Ollama ----
-        public string OllamaUrl = "http://localhost:11434";
-        public string ApiKey = "";             // optional, for Ollama cloud / proxies (never saved in profiles)
+        // ---- connection ----
+        public string ApiKind = "ollama";      // ollama | openai   which API the server speaks
+        public string OllamaUrl = "http://localhost:11434";  // Ollama base URL, OR the base URL of an OpenAI-compatible server
+        public string ApiKey = "";             // optional API key (cloud / proxy, never saved in profiles)
         public string Model = "";
         public float Temperature = 0.4f;
         public int NumCtx = 8192;
@@ -128,6 +129,10 @@ namespace CasualtiesOllama
         public string ToggleKey = "F9";
         public string StopKey = "F10";
         public string PointerKey = "F7";
+
+        /// <summary>True when the server speaks the OpenAI protocol. Tolerant of saved label text like "OpenAI-compatible".</summary>
+        public bool UsesOpenAi => string.Equals(ApiKind, "openai", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ApiKind, "openai-compatible", StringComparison.OrdinalIgnoreCase);
 
         public SenseSettings Sense = new SenseSettings();
         public PermissionSettings Allow = new PermissionSettings();

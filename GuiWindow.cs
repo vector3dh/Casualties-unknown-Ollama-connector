@@ -351,7 +351,21 @@ namespace CasualtiesOllama
 
         void TabModel()
         {
-            GUILayout.Label("Ollama server", header);
+            bool openai = string.Equals(Cfg.ApiKind, "openai", StringComparison.OrdinalIgnoreCase);
+            GUILayout.Label(openai ? "OpenAI-compatible server" : "Ollama server", header);
+            GUILayout.Label("API the server speaks:", small);
+            string[] apiOpts = { "Ollama", "OpenAI-compatible" };
+            int prev = 0;
+            for (int i = 0; i < apiOpts.Length; i++)
+                if (string.Equals(apiOpts[i], Cfg.ApiKind, StringComparison.OrdinalIgnoreCase)) { prev = i; break; }
+            int apiIdx = GUILayout.Toolbar(prev, apiOpts);
+            // store the canonical value the rest of the code checks for, NOT the label text
+            if (apiIdx != prev)
+            {
+                Cfg.ApiKind = apiIdx == 0 ? "ollama" : "openai";
+                Cfg.Save();   // persist immediately so switching survives a game restart
+                dirty = true;
+            }
             GUILayout.BeginHorizontal();
             Cfg.OllamaUrl = Field("url", Cfg.OllamaUrl);
             if (GUILayout.Button(fetching ? "..." : "Refresh models", GUILayout.Width(120))) FetchModels();
@@ -381,7 +395,9 @@ namespace CasualtiesOllama
             ti = GUILayout.Toolbar(ti, opts);
             Cfg.Think = opts[ti];
             GUILayout.EndHorizontal();
-            GUILayout.Label("Tip: small fast models with thinking 'off' play best. The API key is never written into profiles.", small);
+            GUILayout.Label(openai
+                ? "Tip: paste the base URL of your OpenAI-compatible server (e.g. http://localhost:1234 or https://openrouter.ai/api/v1). The API key is never written into profiles."
+                : "Tip: small fast models with thinking 'off' play best. The API key is never written into profiles.", small);
             if (GUILayout.Button("Save settings now")) { Cfg.Save(); P.ParseKeys(); dirty = false; }
         }
 
@@ -593,7 +609,7 @@ namespace CasualtiesOllama
                         fetching = false;
                     });
                 }
-                catch (Exception ex) { string msg = ex.Message; mq.Enqueue(() => { modelStatus = "Could not reach Ollama: " + msg; fetching = false; }); }
+                catch (Exception ex) { string msg = ex.Message; mq.Enqueue(() => { modelStatus = "Could not reach " + (Cfg.ApiKind == "openai" ? "OpenAI server [ApiKind=" + Cfg.ApiKind + "]" : "Ollama [ApiKind=" + Cfg.ApiKind + "]") + ": " + msg; fetching = false; }); }
             });
         }
     }

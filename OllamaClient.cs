@@ -91,7 +91,7 @@ namespace CasualtiesOllama
         }
     }
 
-    /// <summary>Minimal blocking Ollama client. ALWAYS call from a background thread.</summary>
+    /// <summary>Minimal blocking chat client for BOTH Ollama and OpenAI-compatible APIs. ALWAYS call from a background thread.</summary>
     public static class OllamaClient
     {
         static HttpWebRequest Make(AiSettings cfg, string url, string method, int timeoutSec)
@@ -100,6 +100,7 @@ namespace CasualtiesOllama
             req.Method = method;
             req.Timeout = timeoutSec * 1000;
             req.ReadWriteTimeout = timeoutSec * 1000;
+            // OpenAI-compatible servers (and Ollama proxies) all accept a Bearer token here.
             if (!string.IsNullOrWhiteSpace(cfg.ApiKey)) req.Headers["Authorization"] = "Bearer " + cfg.ApiKey.Trim();
             return req;
         }
@@ -122,13 +123,42 @@ namespace CasualtiesOllama
 
         static string Base(AiSettings cfg) { return cfg.OllamaUrl.TrimEnd('/'); }
 
+        /// <summary>OpenAI-compatible base URL: ensure it ends with /v1 (unless the user already typed it, e.g. OpenRouter's /api/v1).</summary>
+        static string OpenAiBase(AiSettings cfg)
+        {
+            string b = cfg.OllamaUrl.TrimEnd('/');
+            string lower = b.ToLowerInvariant();
+            if (lower.Contains("/v1/") || lower.EndsWith("/v1") || lower.EndsWith("/openai")) return b;
+            return b + "/v1";
+        }
+
         public static List<string> ListModels(AiSettings cfg)
         {
+            Plugin.Log?.LogInfo("ListModels -> ApiKind=[" + cfg.ApiKind + "] openai=" + cfg.UsesOpenAi + " base=[" + cfg.OllamaUrl + "]");
+            if (cfg.UsesOpenAi)
+                return OpenAiListModels(cfg);
+
             var req = Make(cfg, Base(cfg) + "/api/tags", "GET", 10);
             var jo = JObject.Parse(Read(req));
             var list = new List<string>();
             var arr = jo["models"] as JArray;
             if (arr != null) foreach (var m in arr) { string n = (string)m["name"]; if (!string.IsNullOrEmpty(n)) list.Add(n); }
+            list.Sort();
+            return list;
+        }
+
+        /// <summary>Model listing for an OpenAI-compatible server: GET /v1/models -> data[].id.</summary>
+        static List<string> OpenAiListModels(AiSettings cfg)
+        {
+            string url = OpenAiBase(cfg) + "/models";
+            Plugin.Log?.LogInfo("OpenAI ListModels URL -> " + url);
+            var req = Make(cfg, url, "GET", 10);
+            var jo = JObject.Parse(Read(req));
+            var list = new List<string>();
+            var arr = jo["data"] as JArray;
+            if (arr != null) foreach (var m in arr) { string n = (string)m["id"]; if (!string.IsNullOrEmpty(n)) list.Add(n); }
+            var admins = jo["results"] as JArray;   // some proxies use 'results' instead of 'data'
+            if (admins != null) foreach (var m in admins) { string n = (string)m["id"]; if (!string.IsNullOrEmpty(n)) list.Add(n); }
             list.Sort();
             return list;
         }
@@ -174,26 +204,51 @@ namespace CasualtiesOllama
 
         public static ChatResult Chat(AiSettings cfg, List<ChatMessage> messages, bool useSchema, JObject customSchema = null, int numPredict = 0)
         {
+            bool openai = cfg.UsesOpenAi;
+            Plugin.Log?.LogInfo("Chat -> openai=" + openai + " ApiKind=[" + cfg.ApiKind + "] model=[" + cfg.Model + "]");
+
             var msgs = new JArray();
             foreach (var m in messages) msgs.Add(new JObject { ["role"] = m.Role, ["content"] = m.Content });
-            var body = new JObject
+
+            // ---- build the request body (Ollama vs OpenAI shapes differ) ----
+            JObject body;
+            string url;
+            if (openai)
             {
-                ["model"] = cfg.Model,
-                ["messages"] = msgs,
-                ["stream"] = false,
-                ["keep_alive"] = cfg.KeepAlive,
-                ["options"] = new JObject
+                body = new JObject
                 {
+                    ["model"] = cfg.Model,
+                    ["messages"] = msgs,
+                    ["stream"] = false,
                     ["temperature"] = cfg.Temperature,
-                    ["num_ctx"] = cfg.NumCtx,
-                    ["num_predict"] = numPredict > 0 ? numPredict : cfg.NumPredict
-                }
-            };
-            if (useSchema) body["format"] = customSchema ?? ActionSchema();
-            if (cfg.Think == "off") body["think"] = false; else if (cfg.Think == "on") body["think"] = true;
+                    // OpenAI calls it max_tokens; Ollama calls it num_predict. 0 means "use the setting".
+                    ["max_tokens"] = numPredict > 0 ? numPredict : (cfg.NumPredict > 0 ? cfg.NumPredict : 700)
+                };
+                // Ollama-specific knobs (keep_alive, num_ctx, think, format) are not part of the OpenAI schema.
+                url = OpenAiBase(cfg) + "/chat/completions";
+            }
+            else
+            {
+                body = new JObject
+                {
+                    ["model"] = cfg.Model,
+                    ["messages"] = msgs,
+                    ["stream"] = false,
+                    ["keep_alive"] = cfg.KeepAlive,
+                    ["options"] = new JObject
+                    {
+                        ["temperature"] = cfg.Temperature,
+                        ["num_ctx"] = cfg.NumCtx,
+                        ["num_predict"] = numPredict > 0 ? numPredict : cfg.NumPredict
+                    }
+                };
+                if (useSchema) body["format"] = customSchema ?? ActionSchema();
+                if (cfg.Think == "off") body["think"] = false; else if (cfg.Think == "on") body["think"] = true;
+                url = Base(cfg) + "/api/chat";
+            }
 
             string payload = body.ToString(Newtonsoft.Json.Formatting.None);
-            var req = Make(cfg, Base(cfg) + "/api/chat", "POST", cfg.TimeoutSec);
+            var req = Make(cfg, url, "POST", cfg.TimeoutSec);
             req.ContentType = "application/json";
             byte[] bytes = Encoding.UTF8.GetBytes(payload);
             req.ContentLength = bytes.Length;
@@ -203,10 +258,22 @@ namespace CasualtiesOllama
             try
             {
                 var jo = JObject.Parse(Read(req));
-                string content = (string)jo["message"]?["content"] ?? "";
-                res.Content = Regex.Replace(content, "<think>.*?</think>", "", RegexOptions.Singleline).Trim();
-                res.PromptTokens = (int?)jo["prompt_eval_count"] ?? 0;
-                res.EvalTokens = (int?)jo["eval_count"] ?? 0;
+                // OpenAI: choices[0].message.content ; Ollama: message.content. Pull the text and
+                // strip any reasoning block. Fallbacks keep it working against token-less servers.
+                string content = openai
+                    ? (string)jo["choices"]?[0]?["message"]?["content"] ?? (string)jo["choices"]?[0]?["text"] ?? ""
+                    : (string)jo["message"]?["content"] ?? "";
+                if (openai)
+                {
+                    res.PromptTokens = (int?)jo["usage"]?["prompt_tokens"] ?? 0;
+                    res.EvalTokens = (int?)jo["usage"]?["completion_tokens"] ?? 0;
+                }
+                else
+                {
+                    res.PromptTokens = (int?)jo["prompt_eval_count"] ?? 0;
+                    res.EvalTokens = (int?)jo["eval_count"] ?? 0;
+                }
+                res.Content = Regex.Replace(content, "< think>.*?< /think>", "", RegexOptions.Singleline).Trim();
                 if (res.PromptTokens + res.EvalTokens == 0) res.PromptTokens = (payload.Length + content.Length) / 4;
             }
             finally
